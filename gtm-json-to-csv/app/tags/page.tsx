@@ -2,18 +2,17 @@
 import { Metadata } from "next";
 import type { GtmContainerExport } from "@/models/container/gtmContainerExport";
 
-// Optional: set <head> metadata
+// Import the function
+import { getTagTypeName } from "@/lib/getTagTypeName";
+
 export const metadata: Metadata = {
   title: "GTM Tags and Triggers",
 };
 
 export default async function TagsPage() {
-  // 1. Fetch the GTM data from our custom endpoint
   const res = await fetch("http://localhost:3000/api/upload-data", {
-    // Force dynamic fetching so we always get the latest data
     cache: "no-store",
   });
-
   if (!res.ok) {
     return (
       <main className="p-4">
@@ -23,19 +22,15 @@ export default async function TagsPage() {
     );
   }
 
-  // 2. Parse the JSON and get the container data
   const json = await res.json();
-  const data = json.data as GtmContainerExport; // cast to our model
+  const data = json.data as GtmContainerExport;
 
   const tags = data?.containerVersion?.tag ?? [];
   const triggers = data?.containerVersion?.trigger ?? [];
 
-  // 3. Create a map (triggerId -> triggerName) for easy lookup
-  const triggerMap = new Map(
-    triggers.map((trigger) => [trigger.triggerId, trigger.name])
-  );
+  // Build a triggerId -> name map
+  const triggerMap = new Map(triggers.map((t) => [t.triggerId, t.name]));
 
-  // 4. Render a table with all tags and their associated triggers
   return (
     <main className="p-4">
       <h1 className="text-xl font-bold mb-4">All Tags and Their Triggers</h1>
@@ -46,22 +41,32 @@ export default async function TagsPage() {
           <thead>
             <tr className="bg-gray-100 border-b">
               <th className="text-left p-2 border">Tag Name</th>
+              <th className="text-left p-2 border">Tag Type</th>
               <th className="text-left p-2 border">Firing Triggers</th>
             </tr>
           </thead>
           <tbody>
             {tags.map((tag) => {
               const firingTriggerIds = tag.firingTriggerId ?? [];
-              // For each ID, look up the trigger name from triggerMap
-              const associatedTriggers = firingTriggerIds.map((id) => triggerMap.get(id) || `Trigger #${id}`);
+              const associatedTriggers = firingTriggerIds.map(
+                (id) => triggerMap.get(id) || `Trigger #${id}`
+              );
 
               return (
                 <tr key={tag.tagId} className="border-b">
                   <td className="p-2 border">{tag.name}</td>
+                  {/* Use the utility function here */}
+                  <td className="p-2 border">{getTagTypeName(tag.type)}</td>
                   <td className="p-2 border">
-                    {associatedTriggers.length > 0
-                      ? associatedTriggers.join(", ")
-                      : "No triggers"}
+                    {associatedTriggers.length > 0 ? (
+                      <ul>
+                        {associatedTriggers.map((triggerName) => (
+                          <li key={triggerName}>{triggerName}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      "No triggers"
+                    )}
                   </td>
                 </tr>
               );
